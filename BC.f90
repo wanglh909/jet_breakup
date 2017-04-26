@@ -1,0 +1,142 @@
+
+
+
+subroutine Dirichlet_BC(m, locJac, locRes, LNVar, LNOPP)
+  use kind
+  use data, only: NNX, NTN, rcoordinate, zcoordinate, R, H, Nr,  Nz, Nu, Nv, Np, timestep, &
+       MDF, rowNM, columnNM, globalNM, NEX, NEY, bas
+
+  implicit none
+  integer(kind=ik):: i, j, ipp
+
+  integer(kind=ik):: m, LNVar, LNOPP(bas)
+  real(kind=rk):: locJac(LNVar, LNVar), locRes(LNVar)
+
+
+  if(timestep.eq.0) then
+
+     !nodes at the lower boundary
+     if( rowNM(m).eq.1 ) then
+        do i = 1, 3
+           ipp = i
+           j = LNOPP(ipp)+1
+           locJac(j,:) = 0.0_rk
+           locJac(j,j) = 1.0_rk
+           locRes(j) = 0.0_rk
+        end do
+     end if
+
+     !nodes at the left
+     if( columnNM(m).eq.1 ) then
+        do i = 1, 3
+           ipp = i*3-2
+           j = LNOPP(ipp)
+           locJac(j,:) = 0.0_rk
+           locJac(j,j) = 1.0_rk
+           locRes(j) = 0.0_rk
+        end do
+     end if
+
+     !nodes at the upper boundary
+     if( rowNM(m).eq.NEY ) then
+        do i = 1, 3
+           ipp = i+6
+           j = LNOPP(ipp)+1
+           locJac(j,:) = 0.0_rk
+           locJac(j,j) = 1.0_rk
+           locRes(j) = 0.0_rk
+        end do
+     end if
+
+     !nodes at the right
+     if( columnNM(m).eq.NEX ) then
+        do i = 1, 3
+           ipp = i*3
+           j = LNOPP(ipp)        !the location of Rsi(i) in locRes
+           locJac(j,:) = 0.0_rk
+           locJac(j,j) = 1.0_rk    !dRsi/dri
+           locJac(j,j+1) = -0.1_rk*3.14_rk/H*sin(zcoordinate( globalNM(m,ipp) )*3.14_rk/H)     !dRsi/dzi
+           locRes(j) = rcoordinate( globalNM(m,ipp) ) - R + 0.1_rk*cos( zcoordinate( globalNM(m,ipp) )*3.14_rk/H )
+        end do
+     end if
+
+
+     !u,v,p at all nodes, since just maneuvering the mesh
+     do i = 1, bas
+        do j = LNOPP(i)+2, LNOPP(i)+4
+           if(MDF( globalNM(m,i) ).lt.5 .and. j.eq.LNOPP(i)+4) cycle
+           locJac(j,:) = 0.0_rk
+           locJac(j,j) = 1.0_rk
+           locRes(j) = 0.0_rk
+        end do
+     end do
+
+
+
+
+  else
+
+     !nodes at the lower boundary
+     if( rowNM(m).eq.1 ) then
+        do i = 1, 3
+           ipp = i
+           
+           j = LNOPP(ipp)+Nz
+           locJac(j,:) = 0.0_rk
+           locJac(j,j) = 1.0_rk
+           locRes(j) = 0.0_rk
+
+           j = LNOPP(ipp)+Nv
+           locJac(j,:) = 0.0_rk
+           locJac(j,j) = 1.0_rk
+           locRes(j) = 0.0_rk
+
+        end do
+     end if
+
+     !nodes at the left
+     if( columnNM(m).eq.1 ) then
+        do i = 1, 3
+           ipp = i*3-2
+           
+           j = LNOPP(ipp)+Nr
+           locJac(j,:) = 0.0_rk
+           locJac(j,j) = 1.0_rk
+           locRes(j) = 0.0_rk
+
+           j = LNOPP(ipp)+Nu
+           locJac(j,:) = 0.0_rk
+           locJac(j,j) = 1.0_rk
+           locRes(j) = 0.0_rk
+
+        end do
+     end if
+
+     !nodes at the upper boundary
+     if( rowNM(m).eq.NEY ) then
+        do i = 1, 3
+           ipp = i+6
+           
+           j = LNOPP(ipp)+Nz
+           locJac(j,:) = 0.0_rk
+           locJac(j,j) = 1.0_rk
+           locRes(j) = 0.0_rk
+
+           j = LNOPP(ipp)+Nv
+           locJac(j,:) = 0.0_rk
+           locJac(j,j) = 1.0_rk
+           locRes(j) = 0.0_rk
+
+        end do
+     end if
+
+
+     ! !nodes at the right
+     ! no dirichlet BC
+
+  end if
+
+
+
+end subroutine Dirichlet_BC
+

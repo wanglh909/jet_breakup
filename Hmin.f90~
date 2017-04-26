@@ -1,0 +1,34 @@
+subroutine Hmin
+use kind
+use data, only: R, NTE, NEX, globalNM, columnNM, rcoordinate, timestep, time
+
+
+implicit none
+
+integer(kind=ik):: m,      !Nrmin: the node number where rmin appears
+real(kind=rk):: Hmin
+
+
+     Hmin = R
+     do m = 1, NTE
+        if( columnNM(m) .eq. NEX ) then
+           if( rcoordinate( globalNM(m,3) ) .lt. Hmin )   Hmin = rcoordinate( globalNM(m,3) )
+           if( rcoordinate( globalNM(m,6) ) .lt. Hmin )   Hmin = rcoordinate( globalNM(m,6) )
+           if( rcoordinate( globalNM(m,9) ) .lt. Hmin )   Hmin = rcoordinate( globalNM(m,9) )
+        end if
+     end do
+     write(*,*) 'Hmin:', Hmin
+     
+     
+     if (timestep.eq.0) then
+        open(unit = 10, file = 'Hmin1.dat', status = 'replace')
+        write(10,'(A)') 'variables = "t", "Hmin" '
+        write(10,'(A)') 'zone T  = "solution" ' 
+     else
+        open(unit = 10, file = 'Hmin1.dat', status = 'old', access = 'append')
+     end if
+
+     write(10,'(2es14.7)') time, Hmin
+     close (10)
+
+   end subroutine Hmin

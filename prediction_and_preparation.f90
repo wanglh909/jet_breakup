@@ -1,0 +1,107 @@
+
+  
+subroutine prediction
+  use kind
+  use data, only: timestep, time, sol, solp, dt, dtp, soldot, soldotp, soldotpp, solpred, CTJ, eps, trunerr, NVar, NTN, &
+       rcoordinate, zcoordinate, step
+  use NOP_mod, only: NOPP
+
+
+  implicit none
+
+  integer(kind=ik):: i, j, imax, jmax
+  character(LEN=2) :: var
+
+  !prepare for the next time step
+  if(timestep.gt.4) then
+
+     trunerr = 0.0_rk     !Linf norm
+     do i = 1, NTN
+        do j = 1, 4
+           if (ABS( sol( NOPP(i)+j-1 )  - solpred( NOPP(i)+j-1 ) ) .gt.trunerr) then
+              trunerr = ABS( sol( NOPP(i)+j-1 ) - solpred( NOPP(i)+j-1 ) )
+              imax = i
+              jmax = j
+           end if
+        end do
+     end do
+     if(jmax.eq.1) var = 'r'
+     if(jmax.eq.2) var = 'z'
+     if(jmax.eq.3) var = 'u'
+     if(jmax.eq.4) var = 'v'
+
+     ! do i = 1, NVar, 1
+     !    if (ABS( sol(i) - solpred(i) ).gt.trunerr) trunerr = ABS( sol(i) - solpred(i) )
+     ! end do
+
+     trunerr = trunerr/3.0_rk/( 1.0_rk + dtp/dt )
+
+     if (timestep.eq.5 .and. step.eq.0) then
+        open(unit = 10, file = 'trun_error.dat', status = 'replace')
+        write(10, '(A)') 'variables = "dmax", "variable", "node", "rcoordinate", "zcoordinate" '
+     else
+        open(unit = 10, file = 'trun_error.dat', status = 'old', access = 'append')
+     end if
+
+     if(step.eq.0) then
+        write(10, '(A)') ' '
+        write(10, '(A, 2es15.7, i8, A)') '----------------', time, dt, timestep, '---------------------'
+        write(10, '(A)') ' '
+     end if
+
+     write(10,'(es15.7, A, A, i8, 2es15.7)') trunerr, '   ', var, imax, rcoordinate(imax), zcoordinate(imax)
+
+     close(10)
+
+
+
+     !define soldot
+     ! because after the last loop of newton's method for one time step, soldot wasn't calculated
+     ! in order to use 'soldotp = soldot' in the next time step, soldotp need to be calculated one more time. 
+     if (timestep.le.5) then
+        do i = 1, NVar, 1
+           soldot(i) = ( sol(i) - solp(i) )/dt
+        end do
+     else
+        do i = 1, NVar, 1
+           soldot(i) = 2.0_rk*( sol(i) - solp(i) )/dt - soldotp(i)
+        end do
+     end if
+
+  end if
+
+  !-------------------------------------next timestep----------------------------------------------------
+  timestep = timestep + 1
+  solp = sol
+
+  !define dt
+  dtp = dt
+  !for first 5 steps, dt doesn't need to be redefined; after 5 steps, do the following
+  if (timestep.gt.5) then
+     dt = dtp*( eps/trunerr )**(1.0_rk/3.0_rk)
+  end if
+  time = time + dt
+  write(*,*) 'time:', time, '    dt:', dt, '    timestep:', timestep
+
+  soldotpp = soldotp
+  soldotp = soldot
+
+  !define solpred, viz. the initial guess for each time step
+  if (timestep.le.5) then
+     solpred = solp
+     !sol = solp
+  else
+     solpred = solp + 0.5_rk*dt*( ( 2.0_rk + dt/dtp )*soldotp - dt/dtp*soldotpp )
+     !sol = solp + dt*soldotp
+  end if
+  sol = solpred
+
+
+  !define CTJ: the coefficient of time term in Jac. CTJ will be used when difining Jac
+  if (timestep.le.5) then
+     CTJ = 1.0_rk
+  else
+     CTJ = 2.0_rk
+  end if
+
+end subroutine prediction

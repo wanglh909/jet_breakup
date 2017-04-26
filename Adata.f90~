@@ -1,0 +1,105 @@
+module data
+  use kind
+  implicit none
+
+
+
+  integer(kind=ik):: m, i, j
+  real(kind=rk):: R, H
+  real(kind=rk):: Oh, Grav, Kdi = 1.0_rk     !Kdi: k, used before p as the dimensionless group
+
+  integer(kind=ik):: NEX, NEY, NNX, NTN, NTE, NVar, iBW       !NVar: Number of Variables   !NNX: number of nodes in r (abscissa)
+  integer(kind=ik):: LNVar = 5    !LNVar: local number of variable (r,z,u,v,p --> 5)
+
+
+  integer(kind=ik):: timestep, step
+
+
+  integer(kind=ik), allocatable:: globalNM(:,:), rowNM(:), columnNM(:)
+  integer(kind=ik), allocatable:: MDF(:), NOPP(:)
+  integer(kind=ik):: LMDF(9), LNOPP(9)
+
+
+  integer(kind=ik):: rowN, columnN, globalN
+  real(kind=rk):: time
+  real(kind=rk), allocatable:: rcoordinate(:), zcoordinate(:), usol(:), vsol(:), psol(:)
+  !solp & dtp means previous solution & dt, solpred means the predicted solution
+  real(kind=rk), allocatable:: sol(:), solp(:), soldot(:), soldotp(:), soldotpp(:), solpred(:)
+
+  real(kind=rk), parameter, dimension(3):: gausspoint = (/0.5_rk*(-0.7745966692414833770358531_rk + 1.0_rk),&
+       0.5_rk*(0.000000000000000000000000000000_rk + 1.0_rk),0.5_rk*(0.7745966692414833770358531_rk + 1.0_rk)/)
+
+
+
+  !for subroutine basis_function
+  real(kind=rk):: phi(3,3,9), phisi(3,3,9), phieta(3,3,9), psi(3,3,9), psisi(3,3,9), psieta(3,3,9), &
+       phi_1d(3,3), phix_1d(3,3)
+  integer(kind=ik),parameter:: convert49(4) = (/1, 3, 7, 9/)
+
+
+
+
+  !for subroutine prediction
+  real(kind=rk):: dt, dtp, CTJ, change, trunerr
+  real(kind=rk), parameter:: eps = 1.0e-3_rk
+  real(kind=rk):: TOL
+
+
+
+  !for subroutine values_in_an_element
+  real(kind=rk):: rlocal(9), zlocal(9), ulocal(9), vlocal(9), plocal(9)
+  integer(kind=ik), parameter:: Nr = 0, Nz = 1, Nu = 2, Nv = 3, Np = 4
+  integer(kind=ik), parameter:: NNr = 1, NNz = 2, NNu = 3, NNv = 4, NNp = 5
+  real(kind=rk):: rintfac(3,3), rsi(3,3), reta(3,3), zsi(3,3), zeta(3,3)
+  real(kind=rk):: Jp(3,3), s_orth(3,3)
+  real(kind=rk):: phir(3,3,9), phiz(3,3,9)
+  real(kind=rk):: uintfac(3,3), urintfac(3,3), uzintfac(3,3), &
+       vintfac(3,3), vrintfac(3,3), vzintfac(3,3), pintfac(3,3)
+  real(kind=rk):: rdotintfac(3,3), zdotintfac(3,3), udotintfac(3,3), vdotintfac(3,3)
+  real(kind=rk):: udotlocal(9), vdotlocal(9), rdotlocal(9), zdotlocal(9)
+  real(kind=rk):: rsi_down(3),  zsi_down(3), rsi_up(3), zsi_up(3), reta_left(3), zeta_left(3), &
+       reta_right(3), zeta_right(3)
+  real(kind=rk):: rintfac_right(3), uintfac_right(3), vintfac_right(3), &
+       rdotintfac_right(3), zdotintfac_right(3)
+
+
+  !for subroutine define_sf
+  real(kind=rk):: Aterm(3,3), Bterm(3,3)
+  real(kind=rk), allocatable:: sf(:,:)
+  real(kind=rk):: M1 = 0.0_rk, M2 = 0.0_rk
+  real(kind=rk), parameter:: eps1 = 1.0_rk, eps2 = 1.0_rk, epss = 0.1_rk
+  
+
+
+  !for subroutine values_in_sj
+  real(kind=rk):: s_orth_r(3,3), s_orth_z(3,3)
+  real(kind=rk):: Aterm_r(3,3),Aterm_z(3,3), Bterm_r(3,3), Bterm_z(3,3)
+  real(kind=rk):: Jp_r(3,3), Jp_z(3,3), rJp_r(3,3)
+  real(kind=rk)::  phir_r(3,3,9), phir_z(3,3,9), phiz_r(3,3,9), phiz_z(3,3,9)
+  real(kind=rk):: urintfac_r(3,3), urintfac_z(3,3), uzintfac_r(3,3), uzintfac_z(3,3), &
+       vrintfac_r(3,3), vrintfac_z(3,3), vzintfac_r(3,3), vzintfac_z(3,3)
+
+
+
+
+  !for subroutine VI_in_sj
+  real(kind=rk), allocatable:: sj(:,:,:,:)
+
+
+  !for subroutine SVI_in_sj
+
+
+  !for subroutine Dirichlet_BC
+  real(kind=rk), allocatable:: Jac(:,:), Res(:)
+
+
+
+!for subroutine check
+  integer(kind=ik):: p, q
+
+
+
+
+
+
+end module data

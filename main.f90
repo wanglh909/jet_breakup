@@ -1,0 +1,140 @@
+program main
+  use kind
+  use data
+  use NOP_mod
+  use front_mod, only: init_front, multifront_single
+
+  implicit none
+
+  integer(kind=ik):: i         ,j
+  real(kind=rk)::error1, cal_time
+  real(kind=rk), parameter:: TOL = 1.0e-6_rk
+
+
+  !set mesh parameters
+  NEX = 10
+  NEY = 50
+  R = 1.0_rk
+  H = 4.0_rk
+
+  !set flow parameters
+  Re = 1.0_rk
+  Oh = 0.07_rk
+  Grav = 0.0_rk
+
+  dt = 0.01_rk   !dt in first 5 steps
+
+  call NOP   !get NTE, NTN, NNX;  rowNM, columnNM, globalNM
+  call variableN         !get NOPP, MDF, rNOP
+
+
+  !define iBW
+  iBW = NOPP( 5 + NNX*4 ) + MDF( 5 + NNX*4 ) - NOPP(1) + NNVar - 1
+  !universal: 4 is the number of the lines between; 5 is the "5th" node on the 5th row; 1 is the "1st" node on the 1st row.
+  !warning: will be changed by init_front
+
+  allocate( sol(NVar), dsol(NVar) )
+  allocate( solp(NVar), soldot(NVar), soldotp(NVar), soldotpp(NVar), solpred(NVar) )
+  allocate( rcoordinate(NTN), zcoordinate(NTN), usol(NTN), vsol(NTN), psol( NTN ) )
+  sol = 0.0_rk
+  dsol = 0.0_rk
+  solp = 0.0_rk
+  soldot = 0.0_rk
+  soldotp = 0.0_rk
+  soldotpp = 0.0_rk
+  solpred = 0.0_rk
+
+  call basis_function
+
+  call size_function        !get fsi_size & geta_size
+
+  call init_front(1, -1, 1)
+  !NOP, NOPP, MDF, rNOP, NE etc must be defined before this step
+  !subroutine init_front(init,ptn,ptn2)
+  !init = 1 for first entry, 2 for changing setup after first, 0 for exit
+  !ptn = size of sub rows in middle (-1 for overide single, -2 for overide double, -3 optimal nat/nest), -4 drops
+  !ptn2 = size of sub columns in middle (if ptn<0 make ptn2 1)
+
+
+
+
+  step = 0
+  time = -dt
+  timestep = -1
+  call initial_condition
+
+  do    !loop for time step
+
+     write(*,*)'------------------------next timestep-----------------------------'
+
+     !start solving for the solution for each timestep
+     step = 0
+
+     call prediction
+
+     do             !newtons iteration loop
+        step = step + 1
+
+        !define soldot
+        if (timestep.le.5) then
+           soldot = ( sol - solp )/dt
+        else
+           soldot = 2.0_rk*( sol - solp )/dt - soldotp
+        end if
+        
+        
+        call multifront_single(error1, cal_time)
+        !subroutine multifront_single(L2res,t)
+        !L2res: returns this value
+        !t: returns solve time, useful for comparing different params
+        !mode: determines natural(1) or nested(2) sub ordering
+        !If you overrode init_front with -1 or -2 ptn then no purpose
+
+
+        call L2_error
+
+        write(*,*) 'Res. Error:', error1, '    L2 error:', error2, '    step:', step
+        write(*,*) 'cal_time:', cal_time
+
+        if(timestep.eq.0) then
+           sol = sol + damfac(error2) * dsol
+        else
+           sol = sol + dsol
+        end if
+
+        call split_sol       !need to do for every iteration to prepare for (r,z,u,v,p)local
+        !call graph
+
+        if (step.gt.10 .and. (.not.timestep.eq.0)  ) stop
+        if (error1.lt.TOL.or.error2.lt.TOL) exit
+     end do    !end newtons method loop
+
+     call break_check
+
+     call graph
+
+
+     !***********************************conditions to stop time loop****************************************
+     !if steady state is reached, exit time step loop
+     !if steady state cannot be reached, exit time step loop after 50 rounds
+     change = 0.0_rk
+     do i = 1, NVar, 1
+        if (ABS( sol(i) - solp(i) ).gt.change) change = ABS( sol(i) - solp(i) )
+     end do
+     ! write(*,*) 'change:', change
+     if ( change.lt.1.0e-4_rk ) then
+        write(*,*) 'steady state is reached.'
+        exit
+     end if
+
+     if ( Hmin.lt.1.0e-4_rk ) then
+        write(*,*) 'jet breaks'
+        exit
+     end if
+     !*******************************************************************************************************
+
+  end do
+
+  call tao_calculation
+
+end program main
